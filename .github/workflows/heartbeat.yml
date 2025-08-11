@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send heartbeat
+      - name: Send heartbeat to ingestion API
         run: |
-          curl -X POST \
+          echo "Sending heartbeat to ingestion API..."
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST \
             -H "Content-Type: application/json" \
             -d '[
               {
@@ -24,4 +25,16 @@ jobs:
                 "src": "heartbeat"
               }
             ]' \
-            https://ingestion-api-x84z.onrender.com/ingest/telemetry
+            https://ingestion-api-x84z.onrender.com/ingest/telemetry)
+
+          echo "Full API response:"
+          echo "$RESPONSE"
+
+          STATUS=$(echo "$RESPONSE" | grep HTTP_STATUS | cut -d':' -f2)
+
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Heartbeat failed with status $STATUS"
+            exit 1
+          else
+            echo "✅ Heartbeat sent successfully"
+          fi
