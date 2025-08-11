@@ -1,29 +1,27 @@
 name: Heartbeat to Ingestion API
 
 on:
-  workflow_dispatch:        # show "Run workflow" button
   schedule:
-    - cron: "*/5 * * * *"   # also run every 5 minutes
+    - cron: "*/5 * * * *"  # every 5 minutes
+  workflow_dispatch:       # manual trigger
 
 jobs:
   send-heartbeat:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Send sample telemetry
-        env:
-          INGEST_URL_BASE: ${{ secrets.INGEST_URL_BASE }}
-          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+      - name: Send heartbeat
         run: |
-          curl -sS -X POST "$INGEST_URL_BASE/ingest/telemetry" \
+          curl -X POST \
             -H "Content-Type: application/json" \
-            -H "X-INGEST-KEY: $INGEST_KEY" \
-            -d '{
-              "v": 1,
-              "site_id": "T3",
-              "device_id": "heartbeat",
-              "ts": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
-              "src": "heartbeat",
-              "metrics": [
-                {"metric":"pv_power_w","value":1000,"unit":"W"}
-              ]
-            }'
+            -d '[
+              {
+                "site_id": "T3",
+                "device_id": null,
+                "metric": "heartbeat",
+                "value": 1,
+                "unit": "count",
+                "src": "heartbeat"
+              }
+            ]' \
+            https://ingestion-api-x84z.onrender.com/ingest/telemetry
