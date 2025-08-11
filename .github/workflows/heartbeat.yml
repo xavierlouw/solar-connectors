@@ -1,30 +1,29 @@
-name: Run Victron Connector
+name: Heartbeat to Ingestion API
 
 on:
+  workflow_dispatch:        # show "Run workflow" button
   schedule:
-    - cron: "*/5 * * * *"  # every 5 minutes
-  workflow_dispatch:       # allows manual trigger from GitHub
+    - cron: "*/5 * * * *"   # also run every 5 minutes
 
 jobs:
-  run-victron-connector:
+  send-heartbeat:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-            - name: Run Victron Connector (test)
+      - name: Send sample telemetry
         env:
           INGEST_URL_BASE: ${{ secrets.INGEST_URL_BASE }}
           INGEST_KEY: ${{ secrets.INGEST_KEY }}
         run: |
-          python victron_connector.py --site-id T3 --since-minutes 5
-
+          curl -sS -X POST "$INGEST_URL_BASE/ingest/telemetry" \
+            -H "Content-Type: application/json" \
+            -H "X-INGEST-KEY: $INGEST_KEY" \
+            -d '{
+              "v": 1,
+              "site_id": "T3",
+              "device_id": "heartbeat",
+              "ts": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
+              "src": "heartbeat",
+              "metrics": [
+                {"metric":"pv_power_w","value":1000,"unit":"W"}
+              ]
+            }'
