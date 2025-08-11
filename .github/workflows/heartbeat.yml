@@ -3,38 +3,39 @@ name: Heartbeat to Ingestion API
 on:
   schedule:
     - cron: "*/5 * * * *"  # every 5 minutes
-  workflow_dispatch:       # manual trigger
+  workflow_dispatch:       # allow manual run
 
 jobs:
   send-heartbeat:
     runs-on: ubuntu-latest
-
     steps:
       - name: Send heartbeat to ingestion API
+        env:
+          BASE_URL: ${{ secrets.INGEST_URL_BASE }}   # e.g. https://ingestion-api-x84z.onrender.com
+          API_KEY:  ${{ secrets.INGEST_KEY }}        # your Render INGEST_MASTER_KEY
         run: |
-          echo "Sending heartbeat to ingestion API..."
+          echo "Sending heartbeat to $BASE_URL at $(date -u +%Y-%m-%dT%H:%M:%SZ)..."
+
+          # Build the valid payload (single object with metrics array)
+          PAYLOAD=$(cat <<'JSON'
+          {
+            "v": 1,
+            "site_id": "T3",
+            "device_id": null,
+            "ts": "__TS__",
+            "src": "heartbeat",
+            "metrics": [
+              {"metric": "heartbeat", "value": 1, "unit": "count"}
+            ]
+          }
+          JSON
+          )
+
+          # Insert current UTC timestamp
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          PAYLOAD=${PAYLOAD/__TS__/$TS}
+
           RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST \
             -H "Content-Type: application/json" \
-            -d '[
-              {
-                "site_id": "T3",
-                "device_id": null,
-                "metric": "heartbeat",
-                "value": 1,
-                "unit": "count",
-                "src": "heartbeat"
-              }
-            ]' \
-            https://ingestion-api-x84z.onrender.com/ingest/telemetry)
-
-          echo "Full API response:"
-          echo "$RESPONSE"
-
-          STATUS=$(echo "$RESPONSE" | grep HTTP_STATUS | cut -d':' -f2)
-
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ Heartbeat failed with status $STATUS"
-            exit 1
-          else
-            echo "✅ Heartbeat sent successfully"
-          fi
+            -H "X-INGEST-KEY: $API_KEY" \
+            -d "$PAYLOAD" \
