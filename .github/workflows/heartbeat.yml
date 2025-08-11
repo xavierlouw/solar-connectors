@@ -21,8 +21,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Victron Connector
+            - name: Run Victron Connector (test)
         env:
-          API_URL: ${{ secrets.API_URL }}
-          API_KEY: ${{ secrets.API_KEY }}
-        run: python victron_connector.py
+          INGEST_URL_BASE: ${{ secrets.INGEST_URL_BASE }}
+          INGEST_KEY: ${{ secrets.INGEST_KEY }}
+        run: |
+          python victron_connector.py --site-id T3 --since-minutes 5
+
