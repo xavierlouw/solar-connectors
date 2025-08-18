@@ -3,29 +3,46 @@ name: Victron Connector
 on:
   schedule:
     - cron: "*/10 * * * *"   # every 10 minutes
-  workflow_dispatch:         # allow manual runs
+  workflow_dispatch:         # allow manual test runs
 
 jobs:
   run-victron-connector:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.x"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run Victron connector
         env:
+          # Ingestion API (Render)
           INGEST_URL_BASE: ${{ secrets.INGEST_URL_BASE }}
-          INGEST_KEY: ${{ secrets.INGEST_KEY }}
-          VICTRON_TOKEN: ${{ secrets.VICTRON_TOKEN }}
-          VICTRON_INSTALLATION_ID: ${{ secrets.VICTRON_INSTALLATION_ID }}
+          INGEST_KEY:       ${{ secrets.INGEST_KEY }}
+
+          # Victron VRM (required)
+          VICTRON_TOKEN:            ${{ secrets.VICTRON_TOKEN }}
+          VICTRON_INSTALLATION_ID:  ${{ secrets.VICTRON_INSTALLATION_ID }}   # <-- VRM PORTAL ID
+
+          # Timescale site_id (optional; falls back to T3 if not set)
+          DB_SITE_ID: ${{ secrets.DB_SITE_ID }}
         run: |
-          echo "Running Victron connector for site $VICTRON_INSTALLATION_ID"
-          python victron_connector.py --site-id "$VICTRON_INSTALLATION_ID" --since-minutes 10
+          set -euo pipefail
+
+          # default DB site_id to T3 if not provided
+          SITE_ID="${DB_SITE_ID:-T3}"
+
+          echo "Running Victron connector."
+          echo "Using VRM Portal ID (masked): ${VICTRON_INSTALLATION_ID:0:4}********"
+          echo "Writing to DB site_id: $SITE_ID"
+
+          python victron_connector.py --site-id "$SITE_ID" --since-minutes 10
